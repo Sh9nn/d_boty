@@ -35,11 +35,17 @@ async def dump_users(interaction: discord.Interaction):
     async for message in channel.history(limit=500):
         message_count += 1
         for embed in message.embeds:
+            name_value = None
+            executor_value = None
             for field in embed.fields:
                 if field.name == "Name":
-                    value = field.value.replace("`", "").strip()
-                    if value and value not in users:
-                        users.append(value)
+                    name_value = field.value.replace("`", "").strip()
+                if field.name == "User executor":
+                    executor_value = field.value.replace("`", "").strip()
+            if name_value:
+                entry = f"{name_value} [Executed on: {executor_value or 'Unknown'}]"
+                if entry not in users:
+                    users.append(entry)
     
     if users:
         with open("reshape_users_dump.txt", "w", encoding="utf-8") as f:
