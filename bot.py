@@ -1,5 +1,4 @@
 import discord
-from discord.ext import commands
 from discord import app_commands
 import os
 
@@ -18,7 +17,7 @@ async def dump_users(interaction: discord.Interaction):
     channel = client.get_channel(CHANNEL_ID)
     
     if not channel:
-        await interaction.followup.send("Channel not found")
+        await interaction.followup.send("Channel not found!")
         return
     
     users = []
@@ -28,21 +27,23 @@ async def dump_users(interaction: discord.Interaction):
         message_count += 1
         if message.embeds:
             for embed in message.embeds:
-                if embed.description:
-                    for line in embed.description.split("\n"):
-                        if "**Player:**" in line:
-                            name = line.replace("**Player:**", "").strip()
+                if embed.title == "Reshape execute log":
+                    for field in embed.fields:
+                        if field.name == "Name":
+                            name = field.value.replace("`", "").strip()
                             if name not in users:
                                 users.append(name)
     
     if users:
-        await interaction.followup.send(f"Проверено сообщений: {message_count}, найдено юзеров: {len(users)}\n" + "\n".join(users))
+        with open("reshape_users_dump.txt", "w") as f:
+            f.write(" - ".join(users))
+        await interaction.followup.send(f"Found {len(users)} users:", file=discord.File("reshape_users_dump.txt"))
     else:
-        await interaction.followup.send(f"Проверено сообщений: {message_count}, юзеров не найдено")
+        await interaction.followup.send(f"Checked {message_count} messages, no users found")
 
 @client.event
 async def on_ready():
     await tree.sync()
-    print(f"Бот запущен: {client.user}")
+    print(f"Bot started: {client.user}")
 
 client.run(TOKEN)
