@@ -30,9 +30,9 @@ async def dump_users(interaction: discord.Interaction):
             for embed in message.embeds:
                 for field in embed.fields:
                     if field.name == "Name":
-                        name = field.value.replace("`", "").strip()
-                        if name not in users:
-                            users.append(name)
+                        value = field.value.replace("`", "").strip()
+                        if value not in users:
+                            users.append(value)
     
     if users:
         with open("reshape_users_dump.txt", "w") as f:
