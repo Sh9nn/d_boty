@@ -2,7 +2,8 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
-TOKEN = "MTUwMzI2Mjg1MzM0NjYyNzY2Ng.GR3FTR.G0dsI2HOGtCRkgfoaLQlAHOlMm877atu3gVKJY"
+import os
+TOKEN = os.environ.get("TOKEN")
 CHANNEL_ID = 1503261482907996170
 
 intents = discord.Intents.default()
