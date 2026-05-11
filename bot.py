@@ -7,7 +7,6 @@ CHANNEL_ID = 1503261482907996170
 
 intents = discord.Intents.default()
 intents.message_content = True
-intents.webhooks = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
@@ -24,14 +23,16 @@ async def dump_users(interaction: discord.Interaction):
     users = []
     message_count = 0
     
-async for message in channel.history(limit=500):
-    message_count += 1
-    for embed in message.embeds:
-        for field in embed.fields:
-            if field.name == "Name":
-                value = field.value.replace("`", "").strip()
-                if value not in users:
-                    users.append(value)
+    async for message in channel.history(limit=500):
+        message_count += 1
+        for embed in message.embeds:
+            print(f"Embed title: {repr(embed.title)}")
+            for field in embed.fields:
+                print(f"Field: {repr(field.name)} = {repr(field.value)}")
+                if field.name == "Name":
+                    value = field.value.replace("`", "").strip()
+                    if value not in users:
+                        users.append(value)
     
     if users:
         with open("reshape_users_dump.txt", "w") as f:
