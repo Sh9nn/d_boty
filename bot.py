@@ -7,6 +7,7 @@ CHANNEL_ID = 1503261482907996170
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.webhooks = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
@@ -27,12 +28,11 @@ async def dump_users(interaction: discord.Interaction):
         message_count += 1
         if message.embeds:
             for embed in message.embeds:
-                if embed.title == "Reshape execute log":
-                    for field in embed.fields:
-                        if field.name == "Name":
-                            name = field.value.replace("`", "").strip()
-                            if name not in users:
-                                users.append(name)
+                for field in embed.fields:
+                    if field.name == "Name":
+                        name = field.value.replace("`", "").strip()
+                        if name not in users:
+                            users.append(name)
     
     if users:
         with open("reshape_users_dump.txt", "w") as f:
