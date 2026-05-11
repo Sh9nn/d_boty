@@ -9,8 +9,15 @@ intents = discord.Intents.all()
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
+ALLOWED_ROLES = {"Special", "Crown"}
+
 @tree.command(name="dump_reshape_users", description="Dumps reshape users, updates their info to stay undetected")
 async def dump_users(interaction: discord.Interaction):
+    user_roles = {role.name for role in interaction.user.roles}
+    if not user_roles & ALLOWED_ROLES:
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
     await interaction.response.defer()
     
     channel = client.get_channel(CHANNEL_ID)
@@ -24,7 +31,6 @@ async def dump_users(interaction: discord.Interaction):
     
     async for message in channel.history(limit=500):
         message_count += 1
-        # fetch полное сообщение чтобы получить embeds
         try:
             full_message = await channel.fetch_message(message.id)
             for embed in full_message.embeds:
@@ -38,7 +44,7 @@ async def dump_users(interaction: discord.Interaction):
     
     if users:
         with open("reshape_users_dump.txt", "w", encoding="utf-8") as f:
-            f.write(" - ".join(users))
+            f.write("\n".join(users))
         await interaction.followup.send(f"Found {len(users)} users:", file=discord.File("reshape_users_dump.txt"))
     else:
         await interaction.followup.send(f"Checked {message_count} messages, no users found")
