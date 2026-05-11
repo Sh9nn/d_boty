@@ -5,8 +5,7 @@ import os
 TOKEN = os.environ.get("TOKEN")
 CHANNEL_ID = 1503261482907996170
 
-intents = discord.Intents.default()
-intents.message_content = True
+intents = discord.Intents.all()
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
@@ -25,17 +24,20 @@ async def dump_users(interaction: discord.Interaction):
     
     async for message in channel.history(limit=500):
         message_count += 1
-        for embed in message.embeds:
-            print(f"Embed title: {repr(embed.title)}")
-            for field in embed.fields:
-                print(f"Field: {repr(field.name)} = {repr(field.value)}")
-                if field.name == "Name":
-                    value = field.value.replace("`", "").strip()
-                    if value not in users:
-                        users.append(value)
+        # fetch полное сообщение чтобы получить embeds
+        try:
+            full_message = await channel.fetch_message(message.id)
+            for embed in full_message.embeds:
+                for field in embed.fields:
+                    if field.name == "Name":
+                        value = field.value.replace("`", "").strip()
+                        if value and value not in users:
+                            users.append(value)
+        except:
+            pass
     
     if users:
-        with open("reshape_users_dump.txt", "w") as f:
+        with open("reshape_users_dump.txt", "w", encoding="utf-8") as f:
             f.write(" - ".join(users))
         await interaction.followup.send(f"Found {len(users)} users:", file=discord.File("reshape_users_dump.txt"))
     else:
