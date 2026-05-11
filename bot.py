@@ -34,16 +34,12 @@ async def dump_users(interaction: discord.Interaction):
     
     async for message in channel.history(limit=500):
         message_count += 1
-        try:
-            full_message = await channel.fetch_message(message.id)
-            for embed in full_message.embeds:
-                for field in embed.fields:
-                    if field.name == "Name":
-                        value = field.value.replace("`", "").strip()
-                        if value and value not in users:
-                            users.append(value)
-        except:
-            pass
+        for embed in message.embeds:
+            for field in embed.fields:
+                if field.name == "Name":
+                    value = field.value.replace("`", "").strip()
+                    if value and value not in users:
+                        users.append(value)
     
     if users:
         with open("reshape_users_dump.txt", "w", encoding="utf-8") as f:
