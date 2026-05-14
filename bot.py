@@ -20,7 +20,6 @@ async def dump_users(interaction: discord.Interaction):
     if not has_permission(interaction):
         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
         return
-
     await interaction.response.defer()
     
     channel = client.get_channel(CHANNEL_ID)
@@ -66,7 +65,7 @@ async def clear(interaction: discord.Interaction, amount: int):
         return
     
     await interaction.response.defer(ephemeral=True)
-    deleted = await interaction.channel.purge(limit=amount)
+    deleted = await interaction.channel.purge(limit=amount, check=lambda m: m.webhook_id is None)
     await interaction.followup.send(f"Deleted {len(deleted)} messages.", ephemeral=True)
 
 @client.event
