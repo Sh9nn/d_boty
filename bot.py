@@ -5,10 +5,13 @@ import json
 import re
 import secrets
 import string
+import asyncio
+import websockets
 from datetime import datetime, timedelta
 
 TOKEN = os.environ.get("TOKEN")
 CHANNEL_ID = 1503261482907996170
+WS_PORT = int(os.environ.get("PORT", 8080))
 
 intents = discord.Intents.all()
 client = discord.Client(intents=intents)
@@ -77,6 +80,64 @@ def format_expiry(iso_str: str) -> str:
     return " ".join(parts) if parts else "Less than a minute"
 
 
+def check_key(key: str, hwid: str) -> dict:
+    keys = load_keys()
+
+    for user_id, data in keys.items():
+        if data["key"] != key:
+            continue
+
+        # Проверка срока
+        if data["expiry"] != "lifetime":
+            expiry = datetime.fromisoformat(data["expiry"])
+            if datetime.utcnow() > expiry:
+                return {"status": "expired"}
+
+        # Привязка HWID
+        if "hwid" not in data or data["hwid"] is None:
+            data["hwid"] = hwid
+            save_keys(keys)
+            return {"status": "ok", "user": data["username"]}
+
+        if data["hwid"] == hwid:
+            return {"status": "ok", "user": data["username"]}
+        else:
+            return {"status": "hwid_mismatch"}
+
+    return {"status": "invalid"}
+
+
+# ── WebSocket сервер ──────────────────────────────────────────────────────────
+
+async def ws_handler(websocket):
+    try:
+        async for message in websocket:
+            try:
+                data = json.loads(message)
+                key = data.get("key", "").strip()
+                hwid = data.get("hwid", "").strip()
+
+                if not key or not hwid:
+                    await websocket.send(json.dumps({"status": "invalid"}))
+                    continue
+
+                result = check_key(key, hwid)
+                await websocket.send(json.dumps(result))
+
+            except json.JSONDecodeError:
+                await websocket.send(json.dumps({"status": "invalid"}))
+    except websockets.exceptions.ConnectionClosed:
+        pass
+
+
+async def start_ws():
+    print(f"WebSocket server started on port {WS_PORT}")
+    async with websockets.serve(ws_handler, "0.0.0.0", WS_PORT):
+        await asyncio.Future()
+
+
+# ── Discord команды ───────────────────────────────────────────────────────────
+
 @tree.command(name="dump_reshape_users", description="Dumps reshape users, updates their info to stay undetected")
 async def dump_users(interaction: discord.Interaction):
     if not has_permission(interaction):
@@ -84,7 +145,6 @@ async def dump_users(interaction: discord.Interaction):
         return
 
     await interaction.response.defer()
-
     channel = client.get_channel(CHANNEL_ID)
 
     if not channel:
@@ -163,6 +223,7 @@ async def newkey(interaction: discord.Interaction, time: str, target: discord.Me
     keys[user_id] = {
         "key": key,
         "expiry": expiry,
+        "hwid": None,
         "username": str(target)
     }
     save_keys(keys)
@@ -248,18 +309,53 @@ async def keyinfo(interaction: discord.Interaction, target: discord.Member):
         return
 
     data = keys[user_id]
+    hwid_status = f"`{data['hwid']}`" if data.get("hwid") else "Not bound yet"
 
     embed = discord.Embed(title="Key Info", color=0x9b59b6)
     embed.add_field(name="User", value=target.mention, inline=True)
     embed.add_field(name="Time remaining", value=format_expiry(data["expiry"]), inline=True)
+    embed.add_field(name="HWID", value=hwid_status, inline=False)
     embed.add_field(name="Key", value=f"`{data['key']}`", inline=False)
 
     await interaction.response.send_message(embed=embed)
 
+
+@tree.command(name="resethwid", description="Reset HWID binding for a user")
+@app_commands.describe(target="Target user")
+async def resethwid(interaction: discord.Interaction, target: discord.Member):
+    if not has_permission(interaction):
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    keys = load_keys()
+    user_id = str(target.id)
+
+    if user_id not in keys:
+        await interaction.response.send_message(f"{target.mention} doesn't have a key.", ephemeral=True)
+        return
+
+    keys[user_id]["hwid"] = None
+    save_keys(keys)
+
+    embed = discord.Embed(title="HWID Reset", color=0xf39c12)
+    embed.add_field(name="User", value=target.mention, inline=True)
+    embed.description = "HWID has been unbound. Next login will bind a new HWID."
+
+    await interaction.response.send_message(embed=embed)
+
+
+# ── Запуск ────────────────────────────────────────────────────────────────────
 
 @client.event
 async def on_ready():
     await tree.sync()
     print(f"Bot started: {client.user}")
 
-client.run(TOKEN)
+
+async def main():
+    await asyncio.gather(
+        start_ws(),
+        client.start(TOKEN)
+    )
+
+asyncio.run(main())
