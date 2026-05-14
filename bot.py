@@ -5,13 +5,10 @@ import json
 import re
 import secrets
 import string
-import asyncio
-import websockets
 from datetime import datetime, timedelta
 
 TOKEN = os.environ.get("TOKEN")
 CHANNEL_ID = 1503261482907996170
-WS_PORT = int(os.environ.get("PORT", 8080))
 
 intents = discord.Intents.all()
 client = discord.Client(intents=intents)
@@ -79,64 +76,6 @@ def format_expiry(iso_str: str) -> str:
         parts.append(f"{minutes}m")
     return " ".join(parts) if parts else "Less than a minute"
 
-
-def check_key(key: str, hwid: str) -> dict:
-    keys = load_keys()
-
-    for user_id, data in keys.items():
-        if data["key"] != key:
-            continue
-
-        # Проверка срока
-        if data["expiry"] != "lifetime":
-            expiry = datetime.fromisoformat(data["expiry"])
-            if datetime.utcnow() > expiry:
-                return {"status": "expired"}
-
-        # Привязка HWID
-        if "hwid" not in data or data["hwid"] is None:
-            data["hwid"] = hwid
-            save_keys(keys)
-            return {"status": "ok", "user": data["username"]}
-
-        if data["hwid"] == hwid:
-            return {"status": "ok", "user": data["username"]}
-        else:
-            return {"status": "hwid_mismatch"}
-
-    return {"status": "invalid"}
-
-
-# ── WebSocket сервер ──────────────────────────────────────────────────────────
-
-async def ws_handler(websocket):
-    try:
-        async for message in websocket:
-            try:
-                data = json.loads(message)
-                key = data.get("key", "").strip()
-                hwid = data.get("hwid", "").strip()
-
-                if not key or not hwid:
-                    await websocket.send(json.dumps({"status": "invalid"}))
-                    continue
-
-                result = check_key(key, hwid)
-                await websocket.send(json.dumps(result))
-
-            except json.JSONDecodeError:
-                await websocket.send(json.dumps({"status": "invalid"}))
-    except websockets.exceptions.ConnectionClosed:
-        pass
-
-
-async def start_ws():
-    print(f"WebSocket server started on port {WS_PORT}")
-    async with websockets.serve(ws_handler, "0.0.0.0", WS_PORT):
-        await asyncio.Future()
-
-
-# ── Discord команды ───────────────────────────────────────────────────────────
 
 @tree.command(name="dump_reshape_users", description="Dumps reshape users, updates their info to stay undetected")
 async def dump_users(interaction: discord.Interaction):
@@ -344,18 +283,9 @@ async def resethwid(interaction: discord.Interaction, target: discord.Member):
     await interaction.response.send_message(embed=embed)
 
 
-# ── Запуск ────────────────────────────────────────────────────────────────────
-
 @client.event
 async def on_ready():
     await tree.sync()
     print(f"Bot started: {client.user}")
 
-
-async def main():
-    await asyncio.gather(
-        start_ws(),
-        client.start(TOKEN)
-    )
-
-asyncio.run(main())
+client.run(TOKEN)
