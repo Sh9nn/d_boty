@@ -235,10 +235,7 @@ async def gen(interaction: discord.Interaction, amount: int, time: str):
 
     # Формируем .txt файл
     expiry_label = format_expiry(expiry)
-    lines = [f"Generated {amount} key(s) | Duration: {expiry_label}", ""]
-    lines += generated
-
-    txt_content = "\n".join(lines)
+    txt_content = "\n".join(generated)
     filename = f"keys_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.txt"
 
     with open(filename, "w", encoding="utf-8") as f:
