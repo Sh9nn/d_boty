@@ -265,20 +265,20 @@ async def connect(interaction: discord.Interaction, accountkey: str):
             break
 
     if not found_data:
-        await interaction.response.send_message("❌ Invalid key.", ephemeral=True)
+        await interaction.response.send_message("Invalid key.", ephemeral=True)
         return
 
     if found_data["expiry"] != "lifetime":
         expiry_dt = datetime.fromisoformat(found_data["expiry"])
         if datetime.utcnow() > expiry_dt:
-            await interaction.response.send_message("❌ This key has expired.", ephemeral=True)
+            await interaction.response.send_message("This key has expired.", ephemeral=True)
             return
 
     user_id_str = str(interaction.user.id)
 
     # Если ключ уже привязан к другому Discord аккаунту
     if not found_id.startswith("unbound_") and found_id != user_id_str:
-        await interaction.response.send_message("❌ This key is already linked to another account.", ephemeral=True)
+        await interaction.response.send_message("This key is already linked to another account.", ephemeral=True)
         return
 
     # Если у пользователя уже есть другой ключ
@@ -296,7 +296,7 @@ async def connect(interaction: discord.Interaction, accountkey: str):
         del keys[found_id]
         save_keys(keys)
 
-    await interaction.response.send_message("✅ Key successfully linked to your account!", ephemeral=True)
+    await interaction.response.send_message("Key successfully linked to your account!", ephemeral=True)
 
 
 @tree.command(name="info", description="Check your license status")
@@ -306,7 +306,7 @@ async def info(interaction: discord.Interaction):
 
     if user_id_str not in keys:
         await interaction.response.send_message(
-            "❌ No key linked. Use `/connect` to link your key.", ephemeral=True
+            "No key linked. Use `/connect` to link your key.", ephemeral=True
         )
         return
 
@@ -385,7 +385,7 @@ async def checklicense(interaction: discord.Interaction, license: str):
     )
     embed.add_field(
         name="Status",
-        value="⛔ Expired" if is_expired else "✅ Active",
+        value="Expired" if is_expired else "Active",
         inline=True
     )
     embed.add_field(name="Time remaining", value=expiry_label, inline=True)
