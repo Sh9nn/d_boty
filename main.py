@@ -284,7 +284,7 @@ async def connect(interaction: discord.Interaction, accountkey: str):
     # Если у пользователя уже есть другой ключ
     if user_id_str in keys and keys[user_id_str]["key"] != accountkey:
         await interaction.response.send_message(
-            "❌ You already have a different key linked.",
+            "You already have a different key linked.",
             ephemeral=True
         )
         return
@@ -306,7 +306,7 @@ async def info(interaction: discord.Interaction):
 
     if user_id_str not in keys:
         await interaction.response.send_message(
-            "❌ No key linked. Use `/connect` to link your key.", ephemeral=True
+            "No key linked. Use `/connect` to link your key.", ephemeral=True
         )
         return
 
@@ -359,7 +359,7 @@ async def checklicense(interaction: discord.Interaction, license: str):
 
     if not found_data:
         await interaction.response.send_message(
-            f"❌ Key `{license}` not found.", ephemeral=True
+            f"Key `{license}` not found.", ephemeral=True
         )
         return
 
