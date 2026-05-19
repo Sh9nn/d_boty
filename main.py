@@ -250,6 +250,150 @@ async def gen(interaction: discord.Interaction, amount: int, time: str):
     os.remove(filename)
 
 
+@tree.command(name="connect", description="Link your license key to your Discord account")
+@app_commands.describe(accountkey="Your license key")
+async def connect(interaction: discord.Interaction, accountkey: str):
+    keys = load_keys()
+    accountkey = accountkey.strip()
+
+    found_id = None
+    found_data = None
+    for user_id, data in keys.items():
+        if data["key"] == accountkey:
+            found_id = user_id
+            found_data = data
+            break
+
+    if not found_data:
+        await interaction.response.send_message("❌ Invalid key.", ephemeral=True)
+        return
+
+    if found_data["expiry"] != "lifetime":
+        expiry_dt = datetime.fromisoformat(found_data["expiry"])
+        if datetime.utcnow() > expiry_dt:
+            await interaction.response.send_message("❌ This key has expired.", ephemeral=True)
+            return
+
+    user_id_str = str(interaction.user.id)
+
+    # Если ключ уже привязан к другому Discord аккаунту
+    if not found_id.startswith("unbound_") and found_id != user_id_str:
+        await interaction.response.send_message("❌ This key is already linked to another account.", ephemeral=True)
+        return
+
+    # Если у пользователя уже есть другой ключ
+    if user_id_str in keys and keys[user_id_str]["key"] != accountkey:
+        await interaction.response.send_message(
+            "❌ You already have a different key linked.",
+            ephemeral=True
+        )
+        return
+
+    # Переносим unbound ключ на Discord ID пользователя
+    if found_id.startswith("unbound_"):
+        found_data["username"] = str(interaction.user)
+        keys[user_id_str] = found_data
+        del keys[found_id]
+        save_keys(keys)
+
+    await interaction.response.send_message("✅ Key successfully linked to your account!", ephemeral=True)
+
+
+@tree.command(name="info", description="Check your license status")
+async def info(interaction: discord.Interaction):
+    keys = load_keys()
+    user_id_str = str(interaction.user.id)
+
+    if user_id_str not in keys:
+        await interaction.response.send_message(
+            "❌ No key linked. Use `/connect` to link your key.", ephemeral=True
+        )
+        return
+
+    data = keys[user_id_str]
+
+    if data["expiry"] == "lifetime":
+        time_text = "Lifetime"
+    else:
+        expiry_dt = datetime.fromisoformat(data["expiry"])
+        now = datetime.utcnow()
+        if expiry_dt <= now:
+            time_text = "Expired"
+        else:
+            delta = expiry_dt - now
+            days = delta.days
+            hours, remainder = divmod(delta.seconds, 3600)
+            minutes = remainder // 60
+
+            if days > 0:
+                time_text = f"{days} days remaining!"
+            elif hours > 0:
+                time_text = f"{hours} hours remaining!"
+            else:
+                time_text = f"{minutes} minutes remaining!"
+
+    await interaction.response.send_message(time_text, ephemeral=True)
+
+
+admin_group = app_commands.Group(name="admin", description="Admin commands")
+tree.add_command(admin_group)
+
+
+@admin_group.command(name="checklicense", description="Check info about a key")
+@app_commands.describe(license="The license key to check")
+async def checklicense(interaction: discord.Interaction, license: str):
+    if not has_permission(interaction):
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    keys = load_keys()
+    license = license.strip()
+
+    found_id = None
+    found_data = None
+    for user_id, data in keys.items():
+        if data["key"] == license:
+            found_id = user_id
+            found_data = data
+            break
+
+    if not found_data:
+        await interaction.response.send_message(
+            f"❌ Key `{license}` not found.", ephemeral=True
+        )
+        return
+
+    is_unbound = found_id.startswith("unbound_")
+    hwid_status = f"`{found_data['hwid']}`" if found_data.get("hwid") else "Not bound yet"
+    expiry_label = format_expiry(found_data["expiry"])
+
+    if found_data["expiry"] != "lifetime":
+        expiry_dt = datetime.fromisoformat(found_data["expiry"])
+        is_expired = datetime.utcnow() > expiry_dt
+    else:
+        is_expired = False
+
+    embed = discord.Embed(
+        title="License Info",
+        color=0xe74c3c if is_expired else 0x9b59b6
+    )
+    embed.add_field(name="Key", value=f"`{license}`", inline=False)
+    embed.add_field(
+        name="Owner",
+        value="Unbound (no Discord user)" if is_unbound else f"<@{found_id}> (`{found_data['username']}`)",
+        inline=True
+    )
+    embed.add_field(
+        name="Status",
+        value="⛔ Expired" if is_expired else "✅ Active",
+        inline=True
+    )
+    embed.add_field(name="Time remaining", value=expiry_label, inline=True)
+    embed.add_field(name="HWID", value=hwid_status, inline=False)
+
+    await interaction.response.send_message(embed=embed)
+
+
 @tree.command(name="newkey", description="Generate a new key for a user")
 @app_commands.describe(time="Duration: 1m, 12h, 7d, lt (lifetime)", target="Target user")
 async def newkey(interaction: discord.Interaction, time: str, target: discord.Member):
