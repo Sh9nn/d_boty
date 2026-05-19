@@ -18,7 +18,7 @@ client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
 ALLOWED_ROLES = {"Special", "Crown"}
-KEYS_FILE = "keys.json"
+KEYS_FILE = "/data/keys.json"
 
 
 # ── Утилиты ───────────────────────────────────────────────────────────────────
