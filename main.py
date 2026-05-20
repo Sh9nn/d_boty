@@ -289,27 +289,27 @@ async def connect(interaction: discord.Interaction, accountkey: str):
             break
 
     if not found_data:
-        await interaction.response.send_message("❌ Invalid key.", ephemeral=True)
+        await interaction.response.send_message("Invalid key.", ephemeral=True)
         return
 
     # Проверяем срок только если ключ уже активирован (не pending)
     if not found_data["expiry"].startswith("pending:") and found_data["expiry"] != "lifetime":
         expiry_dt = datetime.fromisoformat(found_data["expiry"])
         if datetime.utcnow() > expiry_dt:
-            await interaction.response.send_message("❌ This key has expired.", ephemeral=True)
+            await interaction.response.send_message("This key has expired.", ephemeral=True)
             return
 
     user_id_str = str(interaction.user.id)
 
     # Если ключ уже привязан к другому Discord аккаунту
     if not found_id.startswith("unbound_") and found_id != user_id_str:
-        await interaction.response.send_message("❌ This key is already linked to another account.", ephemeral=True)
+        await interaction.response.send_message("This key is already linked to another account.", ephemeral=True)
         return
 
     # Если у пользователя уже есть другой ключ
     if user_id_str in keys and keys[user_id_str]["key"] != accountkey:
         await interaction.response.send_message(
-            "❌ You already have a different key linked.",
+            "You already have a different key linked.",
             ephemeral=True
         )
         return
@@ -326,7 +326,7 @@ async def connect(interaction: discord.Interaction, accountkey: str):
         del keys[found_id]
         save_keys(keys)
 
-    await interaction.response.send_message("✅ Key successfully linked to your account!", ephemeral=True)
+    await interaction.response.send_message("Key successfully linked to your account!", ephemeral=True)
 
 
 @tree.command(name="info", description="Check your license status")
@@ -336,7 +336,7 @@ async def info(interaction: discord.Interaction):
 
     if user_id_str not in keys:
         await interaction.response.send_message(
-            "❌ No key linked. Use `/connect` to link your key.", ephemeral=True
+            "No key linked. Use `/connect` to link your key.", ephemeral=True
         )
         return
 
@@ -389,7 +389,7 @@ async def checklicense(interaction: discord.Interaction, license: str):
 
     if not found_data:
         await interaction.response.send_message(
-            f"❌ Key `{license}` not found.", ephemeral=True
+            f"Key `{license}` not found.", ephemeral=True
         )
         return
 
@@ -415,7 +415,7 @@ async def checklicense(interaction: discord.Interaction, license: str):
     )
     embed.add_field(
         name="Status",
-        value="⛔ Expired" if is_expired else "✅ Active",
+        value="Expired" if is_expired else "Active",
         inline=True
     )
     embed.add_field(name="Time remaining", value=expiry_label, inline=True)
@@ -443,11 +443,11 @@ async def admin_claimlicense(interaction: discord.Interaction, license: str):
             break
 
     if not found_data:
-        await interaction.response.send_message(f"❌ Key `{license}` not found.", ephemeral=True)
+        await interaction.response.send_message(f"Key `{license}` not found.", ephemeral=True)
         return
 
     if not found_data["expiry"].startswith("pending:"):
-        await interaction.response.send_message("❌ This key is already active (timer already running).", ephemeral=True)
+        await interaction.response.send_message("This key is already active (timer already running).", ephemeral=True)
         return
 
     seconds = int(found_data["expiry"].split(":")[1])
@@ -478,7 +478,7 @@ async def admin_delkey(interaction: discord.Interaction, license: str):
             break
 
     if not found_id:
-        await interaction.response.send_message(f"❌ Key `{license}` not found.", ephemeral=True)
+        await interaction.response.send_message(f"Key `{license}` not found.", ephemeral=True)
         return
 
     del keys[found_id]
@@ -509,11 +509,11 @@ async def admin_resethwid(interaction: discord.Interaction, acckey: str):
             break
 
     if not found_data:
-        await interaction.response.send_message(f"❌ Key `{acckey}` not found.", ephemeral=True)
+        await interaction.response.send_message(f"Key `{acckey}` not found.", ephemeral=True)
         return
 
     if not found_data.get("hwid"):
-        await interaction.response.send_message(f"❌ This key has no HWID bound.", ephemeral=True)
+        await interaction.response.send_message(f"This key has no HWID bound.", ephemeral=True)
         return
 
     found_data["hwid"] = None
