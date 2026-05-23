@@ -274,6 +274,63 @@ async def gen(interaction: discord.Interaction, amount: int, time: str):
     os.remove(filename)
 
 
+@tree.command(name="compensate", description="Add time to all active users' keys")
+@app_commands.describe(time="Time to add: 1m, 12h, 7d, lifetime")
+async def compensate(interaction: discord.Interaction, time: str):
+    if not has_permission(interaction):
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    delta = parse_time(time)
+    if delta is None:
+        await interaction.response.send_message(
+            "Invalid time format. Use: `1m`, `12h`, `7d`, `lifetime`", ephemeral=True
+        )
+        return
+
+    keys = load_keys()
+    updated = 0
+    skipped = 0
+
+    for user_id, data in keys.items():
+        # Пропускаем уже lifetime
+        if data["expiry"] == "lifetime":
+            skipped += 1
+            continue
+
+        # Если lifetime компенсация — ставим всем lifetime
+        if delta == "lifetime":
+            data["expiry"] = "lifetime"
+            updated += 1
+            continue
+
+        # Pending ключи — добавляем секунды к pending
+        if data["expiry"].startswith("pending:"):
+            current_seconds = int(data["expiry"].split(":")[1])
+            data["expiry"] = f"pending:{current_seconds + int(delta.total_seconds())}"
+            updated += 1
+            continue
+
+        # Обычные активные ключи
+        expiry_dt = datetime.fromisoformat(data["expiry"])
+        # Если истёк — начинаем с сейчас
+        if expiry_dt < datetime.utcnow():
+            expiry_dt = datetime.utcnow()
+        data["expiry"] = (expiry_dt + delta).isoformat()
+        updated += 1
+
+    save_keys(keys)
+
+    added_label = "Lifetime" if delta == "lifetime" else str(delta)
+
+    embed = discord.Embed(title="Compensation Applied", color=0x3498db)
+    embed.add_field(name="Time added", value=added_label, inline=True)
+    embed.add_field(name="Keys updated", value=str(updated), inline=True)
+    embed.add_field(name="Skipped (already lifetime)", value=str(skipped), inline=True)
+
+    await interaction.response.send_message(embed=embed)
+
+
 @tree.command(name="connect", description="Link your license key to your Discord account")
 @app_commands.describe(accountkey="Your license key")
 async def connect(interaction: discord.Interaction, accountkey: str):
@@ -397,7 +454,7 @@ async def checklicense(interaction: discord.Interaction, license: str):
     hwid_status = f"`{found_data['hwid']}`" if found_data.get("hwid") else "Not bound yet"
     expiry_label = format_expiry(found_data["expiry"])
 
-    if found_data["expiry"] != "lifetime":
+    if found_data["expiry"] != "lifetime" and not found_data["expiry"].startswith("pending:"):
         expiry_dt = datetime.fromisoformat(found_data["expiry"])
         is_expired = datetime.utcnow() > expiry_dt
     else:
@@ -513,7 +570,7 @@ async def admin_resethwid(interaction: discord.Interaction, acckey: str):
         return
 
     if not found_data.get("hwid"):
-        await interaction.response.send_message(f"This key has no HWID bound.", ephemeral=True)
+        await interaction.response.send_message("This key has no HWID bound.", ephemeral=True)
         return
 
     found_data["hwid"] = None
